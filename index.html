@@ -88,7 +88,7 @@ button.dis{opacity:.4;border-style:dashed}
 </div>
 <div id="esc" class="ov">
   <h1 style="font-size:36px">逃走</h1>
-  <div class="row"><button class="p" id="escSolo">ソロ（ダイヤ3個）</button><button class="p" id="escParty">パーティ（ダイヤ3個）</button><button id="escBack">戻る</button></div>
+  <div class="row"><button class="p" id="escSolo">ソロ（ダイヤ5個）</button><button class="p" id="escParty">パーティ（ダイヤ5個）</button><button id="escBack">戻る</button></div>
 </div>
 <div id="mode" class="ov">
   <h1 style="font-size:36px">避ける</h1>
@@ -282,7 +282,7 @@ $('rkBack').onclick=()=>{show('rk',false);show('home',true)};
 
 // ===== 逃走（迷路）=====
 const MAXP=5,STALE=4000,TS=3,CW=13,GN=CW*2+1,PR=.5,ESP=3.4;
-let gm='solo',mzSolo=false,NCR=3,rref=null,room=null,unsubR=null,unsubP=null,hbT=null,chkT=null,hbN=0;
+let gm='solo',mzSolo=false,NCR=5,rref=null,room=null,unsubR=null,unsubP=null,hbT=null,chkT=null,hbN=0;
 let TM={members:[],players:{},status:'',seed:0,host:'',got:[],dead:[]};
 let lastSeen={},myIdx=0,cnt=0,mazeG=null,grid=null,crs=[],mEn=[],eacc=0,avs={},pend={},P={x:0,y:0,vy:0,z:0,h:0,vx:0,vz:0},camH=0,avYaw=0,walk=0,NP=1,jumpReq=false;
 let beatT=0,et=0;
@@ -555,7 +555,7 @@ function startMazeSolo(){
   beginMaze(true);
 }
 function beginMaze(solo){
-  const members=TM.members.slice();NP=members.length;mzSolo=solo;NCR=3;
+  const members=TM.members.slice();NP=members.length;mzSolo=solo;NCR=5;
   gm='team';clear();
   const mz=genMaze(TM.seed,NCR,4);grid=mz.g;buildMaze();buildCrystals(mz.cr);buildEnemies(mz.en);mazeVis(true);
   myIdx=members.indexOf(uid);
