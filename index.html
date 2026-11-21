@@ -114,6 +114,7 @@ button.dis{opacity:.4;border-style:dashed}
   <div class="set">
     <label>BGM <button class="tg" id="bgmT">ON</button></label>
     <label>ジャンプボタン <button class="tg" id="jumpT">右</button></label>
+    <label>視点移動 <button class="tg" id="viewT">追従</button></label>
     <label>ジョイスティックの速さ <b id="sv">1.0</b></label>
     <input type="range" id="sens" min="0.5" max="2" step="0.1" value="1">
   </div>
@@ -646,10 +647,11 @@ function teamFrame(dt,now){
     t+=dt;$('tm').textContent=t.toFixed(1)+'秒';
     const sx=Math.max(-1,Math.min(1,jx+((key.KeyD||key.ArrowRight)?1:0)-((key.KeyA||key.ArrowLeft)?1:0)));
     const sy=Math.max(-1,Math.min(1,jy+((key.KeyW||key.ArrowUp)?1:0)-((key.KeyS||key.ArrowDown)?1:0)));
-    P.h-=sx*1.9*dt;
+    if(vmode==='F')P.h-=sx*1.9*dt;
     const fx=-Math.sin(P.h),fz=-Math.cos(P.h),rx=Math.cos(P.h),rz=-Math.sin(P.h);
     const sp=4.6*sens,dv=sy>=0?sy:sy*.6;
-    const tvx=(fx*dv+rx*sx*.7)*sp,tvz=(fz*dv+rz*sx*.7)*sp;
+    const sk=vmode==='F'?.7:1;
+    const tvx=(fx*dv+rx*sx*sk)*sp,tvz=(fz*dv+rz*sx*sk)*sp;
     const k=Math.min(1,dt*10);P.vx+=(tvx-P.vx)*k;P.vz+=(tvz-P.vz)*k;
     const nx=P.x+P.vx*dt;if(!hitW(nx,P.z))P.x=nx;
     const nz=P.z+P.vz*dt;if(!hitW(P.x,nz))P.z=nz;
@@ -710,6 +712,19 @@ $('goBtn').onclick=()=>{
   rref.update({status:'playing',seed:1+Math.floor(Math.random()*2147483000),got:[]}).catch(()=>{$('lh').textContent='開始できませんでした'});
 };
 $('lvBtn').onclick=openTeamMenu;
+let vmode=localStorage.getItem('okappaView')==='S'?'S':'F';
+function applyView(){$('viewT').textContent=vmode==='S'?'スワイプ':'追従'}
+applyView();
+$('viewT').onclick=()=>{vmode=vmode==='S'?'F':'S';localStorage.setItem('okappaView',vmode);applyView()};
+let lookId=null,lookX=0;
+document.addEventListener('pointerdown',e=>{
+  if(gm!=='team'||vmode!=='S'||(state!=='play'&&state!=='count')||e.pointerId===jid||lookId!==null)return;
+  if(e.target.closest&&e.target.closest('button'))return;
+  lookId=e.pointerId;lookX=e.clientX;
+});
+document.addEventListener('pointermove',e=>{if(e.pointerId===lookId){P.h-=(e.clientX-lookX)*.006;lookX=e.clientX}});
+const lookEnd=e=>{if(e.pointerId===lookId)lookId=null};
+document.addEventListener('pointerup',lookEnd);document.addEventListener('pointercancel',lookEnd);
 let jside=localStorage.getItem('okappaJump')==='L'?'L':'R';
 function applyJump(){const b=$('jump');b.style.marginLeft='0';b.style.left=jside==='L'?'22px':'auto';b.style.right=jside==='R'?'22px':'auto';$('jumpT').textContent=jside==='L'?'左':'右'}
 applyJump();
