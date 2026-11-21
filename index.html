@@ -44,6 +44,8 @@ button.p{background:#ff2020;border-color:#ff2020;box-shadow:0 0 22px rgba(255,30
 @keyframes scz{0%{transform:translate(-50%,-50%) scale(.08)}6%{transform:translate(-50%,-50%) scale(1)}9%{transform:translate(-46%,-53%) scale(1.15) rotate(-3deg)}12%{transform:translate(-54%,-47%) scale(1.2) rotate(3deg)}15%{transform:translate(-47%,-51%) scale(1.25) rotate(-2deg)}18%{transform:translate(-53%,-49%) scale(1.2) rotate(2deg)}22%{transform:translate(-48%,-52%) scale(1.3) rotate(-3deg)}26%{transform:translate(-52%,-48%) scale(1.25) rotate(3deg)}30%{transform:translate(-49%,-51%) scale(1.3) rotate(-2deg)}35%{transform:translate(-51%,-49%) scale(1.3) rotate(2deg)}100%{transform:translate(-50%,-50%) scale(1.45)}}
 #scNoise{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:.25;pointer-events:none}
 #cmsg{position:fixed;z-index:9;left:0;right:0;top:28%;text-align:center;padding:0 16px;font-size:clamp(18px,5.2vw,28px);font-weight:700;color:#ff3030;letter-spacing:.08em;text-shadow:0 0 14px #000,0 0 6px #f00;display:none;pointer-events:none}
+#spec{position:fixed;z-index:9;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 34px);text-align:center;font-size:15px;font-weight:700;display:none;pointer-events:none;text-shadow:0 0 8px #000}
+#spec b{display:inline-block;background:#000a;padding:8px 14px;border:1px solid #ffffff44}
 #mute{position:fixed;z-index:20;right:12px;top:calc(env(safe-area-inset-top,0px) + 42px);width:32px;height:32px;padding:0;letter-spacing:0;font-size:15px;border-radius:50%;border:1px solid #ffffff55;background:#0006}
 h1{font-family:"Yuji Boku","Hiragino Mincho ProN","Yu Mincho",serif;font-weight:400;transform:skewX(-6deg);text-shadow:0 0 18px rgba(255,30,30,.7),3px 3px 0 #500}
 #home h1{font-size:clamp(34px,11vw,56px);margin-bottom:6px;white-space:nowrap;letter-spacing:.02em}
@@ -71,6 +73,7 @@ button.dis{opacity:.4;border-style:dashed}
 <div id="cry">💎 残り <b id="cn"></b></div>
 <button id="jump">JUMP</button>
 <div id="cmsg"></div>
+<div id="spec"></div>
 <button id="mute" aria-label="sound">🔊</button>
 
 <div id="home" class="ov on">
@@ -213,7 +216,7 @@ function endUI(html,win,title){
   if(win){$('flash').style.opacity=0;BGM.stop();BGM.win();$('oh').textContent='クリア！';$('oh').style.color='#66ccff'}
   else{shake=.7;if(scared){BGM.stop();BGM.scare();doScare()}else BGM.stop(true);$('oh').textContent=title||'轢かれた。';$('oh').style.color='';$('flash').style.opacity=.9}
   $('res').innerHTML=html;
-  ['hud','tm','joy','cry','jump','cmsg'].forEach(i=>$(i).style.display='none');jx=0;jy=0;
+  ['hud','tm','joy','cry','jump','cmsg','spec'].forEach(i=>$(i).style.display='none');jx=0;jy=0;
   $('retry').textContent=gm==='team'?'チーム画面へ':'もう一回';
   setTimeout(()=>show('over',true),win?1200:(scared?2200:800));
 }
@@ -280,7 +283,7 @@ $('rkBack').onclick=()=>{show('rk',false);show('home',true)};
 // ===== 逃走（迷路）=====
 const MAXP=5,STALE=4000,TS=3,CW=13,GN=CW*2+1,PR=.5,ESP=3.4;
 let gm='solo',mzSolo=false,NCR=3,rref=null,room=null,unsubR=null,unsubP=null,hbT=null,chkT=null,hbN=0;
-let TM={members:[],players:{},status:'',seed:0,host:'',got:[]};
+let TM={members:[],players:{},status:'',seed:0,host:'',got:[],dead:[]};
 let lastSeen={},myIdx=0,cnt=0,mazeG=null,grid=null,crs=[],mEn=[],eacc=0,avs={},pend={},P={x:0,y:0,vy:0,z:0,h:0,vx:0,vz:0},camH=0,avYaw=0,walk=0,NP=1,jumpReq=false;
 let beatT=0,et=0;
 let mazeBest=+localStorage.getItem('okappaMazeBest')||0;
@@ -423,7 +426,7 @@ function teamReset(){
   if(unsubR)unsubR();if(unsubP)unsubP();unsubR=unsubP=null;
   clearInterval(hbT);clearInterval(chkT);hbT=chkT=null;
   leaveMaze();rref=null;room=null;lastSeen={};pend={};
-  TM={members:[],players:{},status:'',seed:0,host:'',got:[]};
+  TM={members:[],players:{},status:'',seed:0,host:'',got:[],dead:[]};
 }
 async function delRoom(ref){
   try{const ps=await ref.collection('players').get();await Promise.all(ps.docs.map(d=>d.ref.delete()));await ref.delete()}catch(e){console.warn(e)}
@@ -431,7 +434,7 @@ async function delRoom(ref){
 function abortToHome(text){
   const ref=rref;teamReset();if(ref)delRoom(ref);
   gm='solo';clear();state='home';
-  ['hud','tm','joy','cry','jump','cmsg'].forEach(i=>$(i).style.display='none');jx=0;jy=0;
+  ['hud','tm','joy','cry','jump','cmsg','spec'].forEach(i=>$(i).style.display='none');jx=0;jy=0;
   ['lobby','team','over','mode','kind','esc','rk','set'].forEach(i=>show(i,false));show('home',true);
   $('flash').style.opacity=0;BGM.stop();if(text)notice(text);
 }
@@ -486,7 +489,7 @@ async function enter(ref,code){
       const id=c.doc.id;
       if(c.type==='removed'){
         delete TM.players[id];
-        if(id!==uid&&TM.status==='playing'&&(state==='play'||state==='count'))abortToHome('仲間の通信が途絶えたためルームを解散しました');
+        if(id!==uid&&TM.status==='playing'&&(state==='play'||state==='count'||state==='spec'))abortToHome('仲間の通信が途絶えたためルームを解散しました');
         return;
       }
       const d=c.doc.data();TM.players[id]=d;
@@ -497,12 +500,12 @@ async function enter(ref,code){
   unsubR=ref.onSnapshot(sn=>{
     if(!sn.exists){if(state!=='over')abortToHome('ルームが解散されました');return}
     const d=sn.data(),prev=TM.status;
-    TM.members=d.members||[];TM.host=d.host;TM.seed=d.seed||0;TM.status=d.status;TM.got=d.got||[];
+    TM.members=d.members||[];TM.host=d.host;TM.seed=d.seed||0;TM.status=d.status;TM.got=d.got||[];TM.dead=d.dead||[];
     if(d.status==='lobby'&&TM.members.indexOf(uid)<0){abortToHome('ルームから外れました');return}
     if(d.status==='playing'&&prev!=='playing'&&state==='home')beginMaze(false);
     if(crs.length)applyGot(TM.got);
-    if(d.status==='clear'&&(state==='play'||state==='count')){endUI(overHtml(d.score),true);setTimeout(()=>delRoom(ref),6000)}
-    if(d.status==='over'&&(state==='play'||state==='count')){endUI(deadHtml(d.deadName,d.score),false,'捕まった。');setTimeout(()=>delRoom(ref),6000)}
+    if(d.status==='clear'&&(state==='play'||state==='count'||state==='spec')){endUI(overHtml(d.score),true);setTimeout(()=>delRoom(ref),6000)}
+    if(d.status==='over'&&(state==='play'||state==='count'||state==='spec')){endUI(deadHtml(d.deadName,d.score),false,'全員捕まった。');setTimeout(()=>delRoom(ref),6000)}
     renderLobby();
   },e=>{console.warn(e);abortToHome('通信エラーでルームを解散しました')});
   hbT=setInterval(sendPos,300);chkT=setInterval(check,1000);
@@ -530,7 +533,7 @@ function check(){
     const ls=lastSeen[u];
     if(!ls){lastSeen[u]={hb:-1,at:np};continue}
     if(np-ls.at<STALE)continue;
-    if(TM.status==='playing'&&(state==='play'||state==='count')){abortToHome('通信が途絶えた人がいたためルームを解散しました');return}
+    if(TM.status==='playing'&&(state==='play'||state==='count'||state==='spec')){abortToHome('通信が途絶えた人がいたためルームを解散しました');return}
     if(TM.status==='lobby'){
       if(u===TM.host){abortToHome('ホストの通信が途絶えました');return}
       if(TM.host===uid){
@@ -543,7 +546,7 @@ function check(){
 }
 function sendPos(){
   if(!rref)return;hbN++;
-  rref.collection('players').doc(uid).set({name:getName(),x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),h:+avYaw.toFixed(2),hb:hbN},{merge:true}).catch(()=>{});
+  rref.collection('players').doc(uid).set({name:getName(),x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),h:+avYaw.toFixed(2),ch:+P.h.toFixed(2),hb:hbN},{merge:true}).catch(()=>{});
 }
 function startMazeSolo(){
   BGM.unlock();teamReset();
@@ -559,7 +562,7 @@ function beginMaze(solo){
   const a=myIdx/NP*Math.PI*2;
   P.x=TS+Math.cos(a)*.6*(NP>1?1:0);P.z=TS+Math.sin(a)*.6*(NP>1?1:0);P.y=0;P.vy=0;P.vx=P.vz=0;
   P.h=grid[1][2]===0?-Math.PI/2:Math.PI;camH=P.h;avYaw=P.h;walk=0;jumpReq=false;
-  members.forEach((u,i)=>{const g=mkAvatar(pname(u),AVC[i%5]);mazeG.add(g);avs[u]={g,x:P.x,y:0,z:P.z,h:P.h}});
+  members.forEach((u,i)=>{const g=mkAvatar(pname(u),AVC[i%5]);mazeG.add(g);avs[u]={g,x:P.x,y:0,z:P.z,h:P.h,ch:P.h}});
   base.style.left='50%';base.style.marginLeft='-65px';base.style.bottom='';
   pend={};t=0;state='count';cnt=3;
   ['lobby','team','home','over','mode','kind','esc'].forEach(i=>show(i,false));
@@ -603,7 +606,7 @@ function overHtml(score){
   return 'パーティクリア！<br>タイム <b style="font-size:28px;color:#66ccff">'+(+score).toFixed(1)+'</b> 秒<br><span style="font-size:12px">'+TM.members.map(pname).join('・').replace(/</g,'&lt;')+'</span>';
 }
 function deadHtml(name,score){
-  return String(name||'誰か').replace(/</g,'&lt;')+' が捕まった。<br>ゲームオーバー<br>生存 <b style="font-size:24px;color:#ff4040">'+(+score).toFixed(1)+'</b> 秒';
+  return String(name||'誰か').replace(/</g,'&lt;')+' が最後に捕まった。<br>全滅<br>生存 <b style="font-size:24px;color:#ff4040">'+(+score).toFixed(1)+'</b> 秒';
 }
 $('scImg').src=IMG;
 function doScare(){
@@ -631,14 +634,30 @@ function doScare(){
     requestAnimationFrame(f);
   })();
 }
+let specN=0;
+function specTarget(){
+  const al=TM.members.filter(u=>u!==uid&&(TM.dead||[]).indexOf(u)<0);
+  return al.length?al[specN%al.length]:null;
+}
 function mdie(){
   if(state!=='play')return;
   const sc=Math.round(t*10)/10,got=crs.filter(c=>c.got).length;
   if(mzSolo){endUI('生存 <b style="font-size:24px;color:#ff4040">'+sc.toFixed(1)+'</b> 秒<br>ダイヤ '+got+'/'+NCR,false,'捕まった。');return}
+  // パーティ：捕まった人は観戦に回り、残りの人は続行
   const nm=pname(uid),ref=rref;
-  if(ref)ref.update({status:'over',deadName:nm,score:sc}).catch(()=>{});
-  endUI(deadHtml(nm,sc),false,'捕まった。');
-  setTimeout(()=>{if(ref)delRoom(ref)},6000);
+  BGM.stop();BGM.scare();doScare();
+  state='spec';specN=0;TM.dead=(TM.dead||[]).concat([uid]);
+  ['joy','jump','cmsg'].forEach(i=>$(i).style.display='none');jx=0;jy=0;
+  $('spec').style.display='block';
+  setTimeout(()=>{if(state==='spec')BGM.start()},1900);
+  if(ref)db.runTransaction(async tx=>{
+    const sn=await tx.get(ref);if(!sn.exists)return;
+    const d=sn.data();if(d.status!=='playing')return;
+    const dd=d.dead||[];if(dd.indexOf(uid)>=0)return;
+    const nd=dd.concat([uid]),up={dead:nd};
+    if(nd.length>=(d.members||[]).length){up.status='over';up.deadName=nm;up.score=sc}
+    tx.update(ref,up);
+  }).catch(e=>console.warn(e));
 }
 function teamFrame(dt,now){
   if(state==='count'){cnt-=dt;jumpReq=false;$('tm').textContent=cnt>0?Math.ceil(cnt):'GO!';if(cnt<=0){state='play';t=0;$('cmsg').style.display='none'}}
@@ -672,15 +691,22 @@ function teamFrame(dt,now){
     }
   }
   $('cn').textContent=crs.filter(c=>!c.got).length+'/'+NCR;
+  if(state==='spec'){
+    t+=dt;$('tm').textContent=t.toFixed(1)+'秒';
+    eacc+=dt;let n2=0;while(eacc>=1/60&&n2++<8){estep(1/60);eacc-=1/60}
+  }
   // アバター
   const kk=Math.min(1,dt*8);
+  const stg=state==='spec'?specTarget():null;
+  if(state==='spec'){const sp=$('spec');sp.innerHTML=stg?'<b>観戦中：'+pname(stg).replace(/</g,'&lt;')+'（タップで切り替え）</b>':''}
   for(const u in avs){
     const a=avs[u];
     if(u===uid){a.g.visible=false;a.g.position.set(P.x,P.y,P.z);a.g.rotation.y=avYaw}
     else{
       const d=TM.players[u];
-      if(d){a.x+=(d.x-a.x)*kk;a.z+=(d.z-a.z)*kk;a.y+=((d.y||0)-a.y)*kk;a.h+=angDiff(d.h,a.h)*kk}
+      if(d){a.x+=(d.x-a.x)*kk;a.z+=(d.z-a.z)*kk;a.y+=((d.y||0)-a.y)*kk;a.h+=angDiff(d.h,a.h)*kk;a.ch+=angDiff(d.ch!==undefined?d.ch:d.h,a.ch)*kk}
       a.g.position.set(a.x,a.y,a.z);a.g.rotation.y=a.h;
+      a.g.visible=(TM.dead||[]).indexOf(u)<0&&u!==stg;
     }
   }
   // クリスタル・オカッパ描画
@@ -692,10 +718,13 @@ function teamFrame(dt,now){
     e.g.rotation.y=Math.atan2(cam.position.x-e.x,cam.position.z-e.z);
   }
   // FPS視点（スティックの向きに追従）
-  camH=P.h;
-  const bob=spd>.4&&P.y<=0?Math.sin(walk)*.04:0;
-  cam.position.set(P.x,1.5+P.y+bob,P.z);
-  cam.rotation.set(0,P.h,0);
+  if(state==='spec'&&stg&&avs[stg]){const a=avs[stg];cam.position.set(a.x,1.5+a.y,a.z);cam.rotation.set(0,a.ch,0)}
+  else{
+    camH=P.h;
+    const bob=spd>.4&&P.y<=0?Math.sin(walk)*.04:0;
+    cam.position.set(P.x,1.5+P.y+bob,P.z);
+    cam.rotation.set(0,P.h,0);
+  }
 }
 $('code').addEventListener('input',()=>{$('code').value=$('code').value.replace(/\D/g,'').slice(0,4)});
 $('toDodge').onclick=()=>{show('kind',false);show('mode',true)};
@@ -717,6 +746,7 @@ function applyView(){$('viewT').textContent=vmode==='S'?'スワイプ':'追従'}
 applyView();
 $('viewT').onclick=()=>{vmode=vmode==='S'?'F':'S';localStorage.setItem('okappaView',vmode);applyView()};
 let lookId=null,lookX=0;
+document.addEventListener('pointerdown',e=>{if(state==='spec'&&!(e.target.closest&&e.target.closest('button')))specN++});
 document.addEventListener('pointerdown',e=>{
   if(gm!=='team'||vmode!=='S'||(state!=='play'&&state!=='count')||e.pointerId===jid||lookId!==null)return;
   if(e.target.closest&&e.target.closest('button'))return;
@@ -731,7 +761,7 @@ applyJump();
 $('jumpT').onclick=()=>{jside=jside==='L'?'R':'L';localStorage.setItem('okappaJump',jside);applyJump()};
 $('jump').addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();jumpReq=true});
 addEventListener('keydown',e=>{if(e.code==='Space')jumpReq=true});
-addEventListener('offline',()=>{if(rref&&(state==='play'||state==='count'||$('lobby').classList.contains('on')))abortToHome('通信が切れました')});
+addEventListener('offline',()=>{if(rref&&(state==='play'||state==='count'||state==='spec'||$('lobby').classList.contains('on')))abortToHome('通信が切れました')});
 addEventListener('pagehide',()=>{if(rref&&TM.status==='lobby')leaveTeam()});
 
 // ===== BGM：オカカパン！オカカパン！ =====
